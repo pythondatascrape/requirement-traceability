@@ -14,12 +14,13 @@ from pathlib import Path
 
 
 def test_exists(root: Path, file: str, name: str) -> bool:
-    """The test's name appears as a whole word in its file."""
+    """The test's name appears as a whole word in its file (each part, for TestX/case)."""
     try:
         text = (root / file).read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    return re.search(rf"(?<![\w]){re.escape(name)}(?![\w])", text) is not None
+    # A Go subtest TestX/case is `func TestX` plus `t.Run("case", ...)`: every part must appear.
+    return all(re.search(rf"(?<![\w]){re.escape(part)}(?![\w])", text) for part in name.split("/") if part)
 
 
 def trace(plan: dict, root: Path, pattern: str | None = None) -> dict:

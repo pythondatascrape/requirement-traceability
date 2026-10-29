@@ -40,3 +40,22 @@ def test_name_must_be_a_whole_word(project):
     (project / "tests" / "test_a.py").write_text("def test_alphabet():\n    pass\n")
     r = trace(project)
     assert r.returncode == 1 and "tests/test_a.py::test_alpha" in r.stdout
+
+
+
+def test_a_go_subtest_is_found_by_its_function_and_its_t_run_name(tmp_path):
+    """Plans name Go subtests as TestX/case; the file has `func TestX` and `t.Run("case", ...)`
+    (a Go project's phase 11 plan: 42 subtests reported missing that all exist)."""
+    import json as j
+    from conftest import task
+    (tmp_path / "x_test.go").write_text('package x\n\nfunc TestAC1(t *testing.T) {\n'
+                                        '\tt.Run("evidence-recorded", func(t *testing.T) {})\n}\n')
+    (tmp_path / "plan.json").write_text(j.dumps({"tasks": [
+        task("01.1", ["01.1"], [("x_test.go", "TestAC1/evidence-recorded")]),
+        task("01.2", ["01.2"], [("x_test.go", "TestAC1/missing-case")]),
+        task("01.3", ["01.3"], [("x_test.go", "TestAC2/evidence-recorded")])]}))
+    r = run("requirement-traceability", "trace.py", "--plan", "plan.json", cwd=tmp_path)
+    assert r.returncode == 1
+    assert "01.1:" not in r.stdout
+    assert "01.2: x_test.go::TestAC1/missing-case not found" in r.stdout
+    assert "01.3: x_test.go::TestAC2/evidence-recorded not found" in r.stdout
